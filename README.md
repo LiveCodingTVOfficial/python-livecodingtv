@@ -1,4 +1,3 @@
-
 python-livecodingtv
 ===================
 
@@ -98,8 +97,8 @@ modifiers that Livecoding.tv supports:
             GET /api/codingcategories/?offset=200&limit=100
 
 
-Recognized filters per API model
-================================
+### Recognized filters per API model
+
 
 CodingCategories:
 
@@ -169,8 +168,8 @@ Examples
 The examples are located in the ./examples directory. They are some examples
 of usage of the Livecoding.tv python wrapper.
 
-lctv-remote-app
-===============
+### lctv-remote-app
+
 
 This example implements a simple but effective Livecoding.tv remote
 application using python-bottle. You can run the example as follows:
