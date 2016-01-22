@@ -1,0 +1,299 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+from bottle import route, run, template, request, redirect, response
+from json import dumps
+
+import logging
+import urllib
+import requests
+
+from livecodingtv.api.exceptions import LctvException
+from livecodingtv.api.models import check_response
+from livecodingtv.api.models  import LctvOauth2App
+from livecodingtv.api.helpers import get_viewing_key
+
+import ConfigParser
+from optparse import OptionParser
+'''
+[global]
+app_client_id:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+app_client_secret:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+app_grant_type:authorization_code
+app_init:/myapp
+app_scope:read read:viewer read:user read:channel chat
+
+'''
+
+# global vars ###############################################################
+APP_CLIENT_ID="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+APP_CLIENT_SECRET="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+APP_GRANT_TYPE="authorization_code"
+APP_INIT="/myapp"
+APP_SCOPE="read"
+'''
+        "read": "Read basic public profile information",
+        "read:viewer": "Play live streams and videos for you",
+        "read:user": "Read your personal information",
+        "read:channel": "Read private channel information",
+        "chat": "Access chat on your behalf",
+'''
+APP_AUTH_HOOK="/myapp/sucess"
+
+PROTOCOL="http"
+HOSTNAME="localhost"
+PORT=8000
+
+CONF_FILE="./lctv-remote-app-example.cfg"
+LOG_FILE="./lctv-remote-app-example.log"
+LOG_LEVEL=10
+
+# options parser ##############################################################
+parser = OptionParser()
+parser.add_option("-c", "--conffile", dest="conffile",
+        help="The configuration file (default: %s)" % CONF_FILE)
+(options, args) = parser.parse_args()
+conf_file = options.conffile
+
+# config parser ###############################################################
+try:
+  # RawConfigParser not interpolate attribute values
+  cfg = ConfigParser.RawConfigParser()
+  cfg.readfp(file(conf_file))
+
+  for s in cfg.sections():
+      if s == 'global':
+          for o in cfg.options(s):
+              try:
+                  if o.upper() == "LOG_LEVEL":
+                      vars()[o.upper()] = int(cfg.get(s,o))
+                  elif o.upper() == "PORT":
+                      vars()[o.upper()] = int(cfg.get(s,o))
+                  else:
+                      vars()[o.upper()] = cfg.get(s,o)
+              except Exception, e:
+                  print "Error parsing %s - %s: %s" % (s,o,e)
+
+except Exception, e:
+    print ("Conffile %s not found: %s" % (conf_file,e))
+
+
+
+
+# functions #########################################################
+
+def show_app(state):
+    """Generates a HTML page which acts as a dummy Livecoding.tv remote
+    application. This page links the autodiscovered API operations and
+    shows how to use common parameters for operations as:
+        * ordering
+        * filtering
+        * searching
+        * formating
+        * and, pagination
+
+    In addition, this page is an example of how to get the viewing_key for
+    of the user using the helpers functions of this library.
+    """
+    global STATES
+    logger.debug("State: {}".format(STATES[state]))
+    static_page = \
+'''
+<!DOCTYPE html>
+<html>
+<body>
+
+<h1>Welcome to Livecoding.tv remote app: <a href="{app_init}?state={state}">{app_init}</a> </h1>
+
+<p><b>REST API Token</b>:
+{token}
+</p>'''
+    try:
+        viewing_key = "?t=" + get_viewing_key(STATES[state]["token"])
+    except:
+        viewing_key = "Check the scope, probably the user:read scope has not been requested"
+    finally:
+        static_page += "<p><b>Streaming view key</b>: {}</p>".format(viewing_key)
+
+    static_page += \
+'''<h2>Considerations</h2><p>The following links using the Livecoding.tv API REST operations in the
+backend logic. <u>Some of those operations use additional parameters as the
+"user_slug", "name" etc</u>. You can get the full list here <a
+href="https://www.livecoding.tv/developer/documentation/">Livecoding.tv API
+docs</a>. Therefore, <u>you will need modify the link according with the desired
+values that you want use manually</u>.For example:</p>
+
+<p>This pre-genererated URL:</p>
+<p><i>GET {app_init}/api/v1/livestreams/%7Buser__slug%7D/?state=4f9e8cf8-cff8-433f-b58f-fbe3f17214fa</i></p>
+<p>;should be replaced as follows:</p>
+<p><i>GET {app_init}/api/v1/livestreams/johndoe/?state=4f9e8cf8-cff8-433f-b58f-fbe3f17214fa</i></p>
+
+'''
+    static_page += '<h2>Available operations:</h2><ul>'
+    for action_key in sorted(ACTIONS, key=ACTIONS.get):
+        action = ACTIONS[action_key]
+        static_page += \
+'<li><a href="{app_init}{end_point}?state={{state}}">{name}</a>'\
+.format(app_init=APP_INIT,**action)
+        if action["name"].count("{")>0:
+            static_page += \
+'<i> warning: this operation is not usable directly. Read the <b>Considerations</b> section (above)!</i>'
+        static_page += '</li>'
+    static_page += '</ul>'
+    static_page += \
+'''
+<p>Many of these actions use additional filtering parameters as:
+    <ul>
+    <li><b>Searching</b>:
+    <p>GET /api/user?search=russell</p>
+    </li>
+    <li><b>Filter</b>:
+    <p>GET /api/livestreams/?coding__name=python</p>
+    </li>
+    <li><b>Ordering</b>:
+    <p>GET /api/livestreams/?ordering=title</p>
+    <p>GET /api/livestreams/?ordering=-title</p>
+    <p>GET /api/scheduledbroadcast/?ordering=livestreams,title</p>
+    </li>
+    <li><b>Format</b>:
+    <p>GET /api/codingcategories/?format=api&offset=100</p>
+    <p>GET /api/codingcategories/?format=json&offset=100</p>
+    </li>
+    <li><b>Pagination</b>:
+    <p>GET /api/codingcategories/?offset=100</p>
+    <p>GET /api/codingcategories/?offset=200&limit=100</p>
+    </li>
+    </ul>
+</p>
+
+</body>
+</html>
+'''
+    return static_page.format(app_init=APP_INIT,**(STATES[state]))
+
+def check_state():
+    '''the state links one concrete user session in the application side
+    with the responses obtained during the OAuth2 authorization process.
+
+    Additionally, for us, in this tiny application example, we use the state
+    identifier to track the users in the bottle application. You could see
+    this how a kind of web session implementation, but trivial enough.
+
+    Anytime, that we use this function, we are checking if the linked state
+    (cookie or GET parameter) is in our internal STATES memory database. In
+    opposite case, there is a redirection to the Livecoding.tv authorization
+    URL. In the opposite case, the funcion return the identifier of the
+    state in STATES database.
+    '''
+    global app
+    global STATES
+    state = request.get_cookie("state", None)
+    state = request.GET.get("state", state)
+    if not state or not STATES.has_key(state):
+        state, scope, url = app.get_authorization_url()
+        STATES[state]={'scope': scope,'state': state}
+        logger.debug("app_init redirecting to: %s" % url)
+        redirect(url)
+        logging.error("State {} not found in the app database".format(state))
+    return state
+
+# routes ############################################################
+
+@route('/')
+@route(APP_INIT)
+def app_init():
+    """
+    The main page of the application. If the user submits a valid state
+    (cookie or GET parameter) then, the dummy application is shown. In
+    opposite case, the user will be redirected to Livecoding.tv in orther to
+    get a correct authorization. Finally, if all the OAuth2 process is
+    correct, the user will be redirected to the dummy app
+    """
+    state = check_state()
+    return show_app(state)
+
+@route(APP_AUTH_HOOK)
+def app_auth_hook():
+    '''APP_AUTH_HOOK must match with the REDIRECT_URI set in the
+    Livecoding.tv Developers Program application.
+    The Livecoding.TV OAuth2 server will submit here a valid code value.
+    This code value will be used by your application in order to generated
+    a valid access token for the user. This token will be associated in this
+    step of the process to the corresponding state in the STATES database.
+
+    This token, represents the personal and individial credentials to get
+    the information from Livecoding.tv as the token user owner.
+
+    Therefore, this token must be properly securized in a real application.
+    '''
+    global STATES
+    code = request.GET.get("code", None)
+    error = request.GET.get("error", None)
+    if error:
+        return "Error: %s" % error
+    try:
+        state = check_state()
+        STATES[state]["code"] = code
+        STATES[state]["token"]=app.generate_token(code)
+        response.set_cookie("state", state)
+        redirect("{}?state={}".format(APP_INIT,state))
+    except LctvException as e:
+        return "Error: %s" % e
+
+
+@route(APP_INIT + '<end_point:path>')
+def api_call(end_point):
+    '''
+    It is a wildcard which is used, in fact, to perform all the remote API
+    operations.
+
+    This dummy applications listen the same URL end points that the
+    Livecoding.tv but with the APP_INIT prefix.
+
+    The application receives requests from the browser client side and acts
+    as a proxy delegating the same query to the Livecoding.tv backend, but
+    this time submiting the request with the access_token in the OAuth2
+    authorization header.
+
+    The result is returned by the app as it is.
+    '''
+    state = check_state()
+    token = STATES[state]["token"]
+    params = request.query.decode()
+    status_code, result = token.api_operation_call(end_point,params)
+    try:
+        check_response(end_point,status_code) # throws n exception if it was
+        # a issue.
+        if isinstance(result,list): # bottle can not transform directly the list
+            # objects in a dictionary so, this is is a work around to allow
+            # that.
+            response.content_type = 'application/json'
+            return dumps(result)
+        return result
+    except LctvException as e:
+        return "Error: %s" % e
+
+
+if __name__ == "__main__":
+    # logging
+    hdlr = logging.FileHandler(LOG_FILE)
+    hdlr.setFormatter(logging.Formatter('%(levelname)s %(asctime)s %(message)s'))
+
+    logger = logging.getLogger('lctv-remote-app')
+    logger.addHandler(hdlr)
+    logger.setLevel(LOG_LEVEL)
+    logger.info( "Starting lctv-remote-app" )
+
+    logger_api = logging.getLogger('lctv-api')
+    logger_api.addHandler(hdlr)
+    logger_api.setLevel(LOG_LEVEL)
+
+    STATES={} #All the sessions/states create by this application. In a real
+    # enviroment this should be something similar to a persistent database
+    # or similar.
+
+    REDIRECT_URI="%s://%s:%s%s" % (PROTOCOL,HOSTNAME,PORT,APP_AUTH_HOOK)
+    app = LctvOauth2App(APP_CLIENT_ID, APP_CLIENT_SECRET, REDIRECT_URI, APP_SCOPE)
+    ACTIONS=app.get_available_remote_api_calls()
+
+    run(host=HOSTNAME, port=PORT)
