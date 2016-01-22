@@ -163,6 +163,34 @@ XMPPAccount:
     scopes = "chat"
 
 
+Examples
+--------
+
+The examples are located in the ./examples directory. They are some examples
+of usage of the Livecoding.tv python wrapper.
+
+lctv-remote-app
+===============
+
+This example implements a simple but effective Livecoding.tv remote
+application using python-bottle. You can run the example as follows:
+
+    
+    $ ./lctv-remote-app -c lctv-remote-app.cfg
+
+    $ ./lctv-remote-app --help
+    Usage: lctv-remote-app [options]
+
+    Options:
+      -h, --help            show this help message and exit
+      -c CONFFILE, --conffile=CONFFILE
+                            The configuration file (default: ./lctv-remote-app-
+                            example.cfg)
+
+The setup of this example is done into the lctv-remote-app.cfg file. See the
+example for more information about the options:
+
+    examples/lctv-remote-app-example.cfg
 
 Bugs, comments and suggestions
 ------------------------------
