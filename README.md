@@ -1,4 +1,4 @@
-===================
+
 python-livecodingtv
 ===================
 
@@ -7,15 +7,15 @@ This package wraps the Livecoding.tv REST API in Python.
 Installation
 ------------
 
-Using PIP::
+Using PIP:
 
-  pip install python-livecodingtv
+    pip install python-livecodingtv
 
-From Github::
+From Github:
 
-  git clone ...
-  cd python-livecodingtv
-  python setup bdist 
+    git clone ...
+    cd python-livecodingtv
+    python setup bdist 
 
 More in information: https://docs.python.org/2/distutils/builtdist.html
 
@@ -35,25 +35,25 @@ livecodingtv.api.LctvOauth2App class encapsulate main logic of the OAuth2
 authorization process and for the remote operations invocation. In summary 
 the work flow is similar to this:
 
-#. Create a LctvOauth2App object with your application credentials::
+1. Create a LctvOauth2App object with your application credentials:
 
-     app = LctvOauth2App(client_id, client_secret, redirect_uri, scope,grant_type)
+       app = LctvOauth2App(client_id, client_secret, redirect_uri, scope,grant_type)
 
-#. Generate the authorization URL with your credentials::
+2. Generate the authorization URL with your credentials:
 
-     state,scope,auth_url = app.get_authorization_url()
+       state,scope,auth_url = app.get_authorization_url()
 
-#. ... a valid code is received as GET parameter in a request for
+3. ... a valid code is received as GET parameter in a request for
    REDIRECT_URI. the state is also a GET parameter of that request in order
    to link the code witht the original state. This part must be implemented
    by your application
 
-#. Finally we can invoke any of the remote operations available::
+4. Finally we can invoke any of the remote operations available::
 
-     token = app.generate_token(code)
-     operations = app.get_available_remote_api_calls()
-     end_point = operations["/api/livestreams/"]["end_point"]
-     token.api_operation_call(end_point,params)
+       token = app.generate_token(code)
+       operations = app.get_available_remote_api_calls()
+       end_point = operations["/api/livestreams/"]["end_point"]
+       token.api_operation_call(end_point,params)
 
 Note that the app.get_available_remote_api_calls method discovers on the fly
 the available methods provided by Livecoding.tv service.
@@ -76,7 +76,7 @@ that the API is used. This only is recommended in special cases
 like debugging or similar stuffs.
 
 The :params are any of the filter,ordering,searcing or similar
-modifiers that Livecoding.tv supports::
+modifiers that Livecoding.tv supports:
 
         Searching:
             GET /api/user?search=russell
@@ -101,37 +101,37 @@ modifiers that Livecoding.tv supports::
 Recognized filters per API model
 ================================
 
-CodingCategories::
+CodingCategories:
 
     search = 'name','sort'
     ordering = 'name','sort'
 
 
-LiveStream::
+LiveStream:
 
     filter = 'difficultylevel', 'channelstate', 'coding__name','language__name'
     search = 'title', 'description'
     ordering = 'title'
 
 
-AccounLiveStream::
+AccounLiveStream:
 
     scopes = "read:channel"
         
 
-LiveStream::
+LiveStream:
 
     scopes = "read"
 
 
-ScheduledBroadcast::
+ScheduledBroadcast:
 
     filter = 'livestream', 'coding_category__name', 'coding_difficulty'
     search = 'title'
     ordering = 'start_time', 'livestream', 'title', 'id'
 
 
-SiteLanguages::
+SiteLanguages:
 
     search = 'name'
     ordering = 'name'
@@ -143,14 +143,14 @@ UserView:
     ordering = 'username', 'slug'
 
 
-AccountUser::
+AccountUser:
 
     scopes =
        "read:viewer", # Provides access to a non crucial data of the user
        "read:user"  # Provides sensitive private data of the user (as the streaming_key)
     
     
-Video::
+Video:
 
     scopes = 'video'
     filter = 'difficultylevel', 'region', 'coding__name','language__name'
@@ -158,7 +158,7 @@ Video::
     ordering = 'title','creation_time','slug'
 
 
-XMPPAccount::
+XMPPAccount:
 
     scopes = "chat"
 
@@ -169,6 +169,3 @@ Bugs, comments and suggestions
 
 Please, use the issue reporting track of Github to report this kind of
 messages. All of them are welcome!.
-
-
-
