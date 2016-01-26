@@ -1,0 +1,192 @@
+#!/usr/bin/python -u
+'''
+Author: Pablo Saavedra <Pablo Saavedra at gmail.com>
+
++++ 23:20:15 john@chat.livecoding.tv/bill is participant
++++ 23:20:15 john@chat.livecoding.tv/peter is participant
+...
++++ 23:20:15 john@chat.livecoding.tv/john is moderator
+>>> I was streaming
+...
+>>> There is another rb tree
+>>> and they are like the same, in one there is height -> side and the other is side -> height
+>>> If this isn't crazy
+>>> How do you get those msgs?
+..
+>>> Go check my streams
+'''
+
+import xmpp
+import webbrowser
+import time
+
+import logging
+
+from livecodingtv.api.exceptions import LctvException
+from livecodingtv.api.models import check_response
+from livecodingtv.api.models import LctvOauth2App
+
+import ConfigParser
+from optparse import OptionParser
+'''
+[global]
+app_client_id:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+app_client_secret:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+app_grant_type:authorization_code
+app_init:/myapp
+app_scope:read read:viewer read:user read:channel chat
+
+'''
+
+# global vars ###############################################################
+APP_CLIENT_ID = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+APP_CLIENT_SECRET = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+APP_GRANT_TYPE = "authorization_code"
+APP_INIT = "/myapp"
+APP_SCOPE = "read"
+'''
+        "read": "Read basic public profile information",
+        "read:viewer": "Play live streams and videos for you",
+        "read:user": "Read your personal information",
+        "read:channel": "Read private channel information",
+        "chat": "Access chat on your behalf",
+'''
+APP_AUTH_HOOK = "/myapp/sucess"
+
+PROTOCOL = "http"
+HOSTNAME = "localhost"
+PORT = 8000
+
+JABBER_HOST = 'xmpp.livecoding.tv'
+JABBER_PORT = 5222
+
+CONF_FILE = "./lctv-remote-app-example.cfg"
+LOG_FILE = "./lctv-remote-app-example.log"
+LOG_LEVEL = 10
+
+# options parser ##############################################################
+parser = OptionParser()
+parser.add_option("-c", "--conffile", dest="conffile",
+                  help="The configuration file (default: %s)" % CONF_FILE)
+(options, args) = parser.parse_args()
+conf_file = options.conffile
+
+# config parser ###############################################################
+try:
+  # RawConfigParser not interpolate attribute values
+    cfg = ConfigParser.RawConfigParser()
+    cfg.readfp(file(conf_file))
+
+    for s in cfg.sections():
+        if s == 'global':
+            for o in cfg.options(s):
+                try:
+                    if o.upper() == "LOG_LEVEL":
+                        vars()[o.upper()] = int(cfg.get(s, o))
+                    elif o.upper() == "JABBER_PORT":
+                        vars()[o.upper()] = int(cfg.get(s, o))
+                    else:
+                        vars()[o.upper()] = cfg.get(s, o)
+                except Exception, e:
+                    print "Error parsing %s - %s: %s" % (s, o, e)
+
+except Exception, e:
+    print ("Conffile %s not found: %s" % (conf_file, e))
+
+
+def presence_handler(conn, event):
+    '''
+    <presence from='john@chat.livecoding.tv/john' to='john@livecoding.tv/john' id='5'>
+      <x xmlns='http://jabber.org/protocol/muc#user'>
+      <item jid='john@livecoding.tv/john' affiliation='admin' role='moderator'/>
+      <status code='110'/>
+      </x>
+      <x xmlns='https://www.livecoding.tv/xmpp/muc#user'>
+      <item premium='true' staff='false'/>
+      </x>
+    </presence>
+    '''
+
+    if "http://jabber.org/protocol/muc#user" in str(event):
+        _from = event.getFrom()
+        _role = event.getRole()
+        if (_role == "none"):
+            print "--- %s %s left the room" % (time.strftime('%X'), str(_from))
+        else:
+            print "+++ %s %s is %s" % (time.strftime('%X'), str(_from), str(_role))
+
+
+def message_handler(conn, event):
+    type = event.getType()
+    if type in ['message', 'chat', 'groupchat', None]:
+        print(">>> " + event.getBody() + '\n')
+
+
+if __name__ == "__main__":
+    # logging
+    hdlr = logging.FileHandler(LOG_FILE)
+    hdlr.setFormatter(logging.Formatter('%(levelname)s %(asctime)s %(message)s'))
+
+    logger = logging.getLogger('lctv-chat')
+    logger.addHandler(hdlr)
+    logger.setLevel(LOG_LEVEL)
+    logger.info("Starting lctv-chat")
+
+    logger_api = logging.getLogger('lctv-api')
+    logger_api.addHandler(hdlr)
+    logger_api.setLevel(LOG_LEVEL)
+
+    REDIRECT_URI = "%s://%s:%s%s" % (PROTOCOL, HOSTNAME, PORT, APP_AUTH_HOOK)
+    app = LctvOauth2App(APP_CLIENT_ID, APP_CLIENT_SECRET, REDIRECT_URI, "read chat")
+
+    state, scope, url = app.get_authorization_url()
+    logger.debug("app_init redirecting to: %s" % url)
+    print "Opening %s ... " % url
+    webbrowser.open(url)
+    time.sleep(5)
+    print "Accept the credentials, copy the code argument in the URL and paste it here.\n\n"
+    code = raw_input("Enter the code: ")
+    token = app.generate_token(code)
+    end_point = "/api/v1/user/chat/account/"
+    params = []
+    status_code, result = token.api_operation_call(end_point, params)
+    try:
+        check_response(end_point, status_code) # throws n exception if it was
+    except LctvException as e:
+        print "Error: %s" % e
+
+    jid = xmpp.protocol.JID(result["jid"])
+    username = jid.getNode()
+    domain = jid.getDomain()
+    password = result["password"]
+    room = "%s@chat.livecoding.tv" % username
+
+    # Establishing the authenticated connection
+    client = xmpp.Client(domain)
+    client.connect(server=(JABBER_HOST, JABBER_PORT))
+    client.auth(username, password, username)
+    client.RegisterHandler('presence', presence_handler)
+    client.sendInitPresence()
+    client.send(xmpp.Presence(to='{0}/{1}'.format(room, username)))
+
+    # Sending a hello! message to the group
+    msg = 'hi all!'
+    message = xmpp.Message(room, msg)
+    message.setAttr('type', 'groupchat')
+    # http://www.igniterealtime.org/builds/tinder/docs/latest/javadoc/org/xmpp/packet/Message.Type.html
+    client.send(message)
+
+    # Checking received events
+    def listen(conn):
+        try:
+            conn.Process(2)
+            # Check incoming stream for data waiting: 2 seconds.
+        except KeyboardInterrupt:
+            return 0
+        return 1
+
+    def loop(client):
+        while listen(client):
+            pass
+
+    loop(client)
