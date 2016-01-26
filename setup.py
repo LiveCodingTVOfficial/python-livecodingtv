@@ -35,6 +35,7 @@ This package wraps the Livecoding.tv REST API in Python.
     ],
     data_files=[
         ('/usr/share/doc/python-livecodingtv/examples', [
+            'examples/lctv-chat',
             'examples/lctv-remote-app',
             'examples/lctv-remote-app-example.cfg',
         ]),
