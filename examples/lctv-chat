@@ -57,9 +57,6 @@ PROTOCOL = "http"
 HOSTNAME = "localhost"
 PORT = 8000
 
-JABBER_HOST = 'xmpp.livecoding.tv'
-JABBER_PORT = 5222
-
 CONF_FILE = "./lctv-remote-app-example.cfg"
 LOG_FILE = "./lctv-remote-app-example.log"
 LOG_LEVEL = 10
@@ -163,7 +160,7 @@ if __name__ == "__main__":
 
     # Establishing the authenticated connection
     client = xmpp.Client(domain)
-    client.connect(server=(JABBER_HOST, JABBER_PORT))
+    client.connect()
     client.auth(username, password, username)
     client.RegisterHandler('presence', presence_handler)
     client.sendInitPresence()
