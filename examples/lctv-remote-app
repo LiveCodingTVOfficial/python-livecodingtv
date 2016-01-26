@@ -1,16 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from bottle import route, run, template, request, redirect, response
+from bottle import route, run, request, redirect, response
 from json import dumps
 
 import logging
-import urllib
-import requests
 
 from livecodingtv.api.exceptions import LctvException
 from livecodingtv.api.models import check_response
-from livecodingtv.api.models  import LctvOauth2App
+from livecodingtv.api.models import LctvOauth2App
 from livecodingtv.api.helpers import get_viewing_key
 
 import ConfigParser
@@ -26,11 +24,11 @@ app_scope:read read:viewer read:user read:channel chat
 '''
 
 # global vars ###############################################################
-APP_CLIENT_ID="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-APP_CLIENT_SECRET="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-APP_GRANT_TYPE="authorization_code"
-APP_INIT="/myapp"
-APP_SCOPE="read"
+APP_CLIENT_ID = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+APP_CLIENT_SECRET = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+APP_GRANT_TYPE = "authorization_code"
+APP_INIT = "/myapp"
+APP_SCOPE = "read"
 '''
         "read": "Read basic public profile information",
         "read:viewer": "Play live streams and videos for you",
@@ -38,50 +36,47 @@ APP_SCOPE="read"
         "read:channel": "Read private channel information",
         "chat": "Access chat on your behalf",
 '''
-APP_AUTH_HOOK="/myapp/sucess"
+APP_AUTH_HOOK = "/myapp/sucess"
 
-PROTOCOL="http"
-HOSTNAME="localhost"
-PORT=8000
+PROTOCOL = "http"
+HOSTNAME = "localhost"
+PORT = 8000
 
-CONF_FILE="./lctv-remote-app-example.cfg"
-LOG_FILE="./lctv-remote-app-example.log"
-LOG_LEVEL=10
+CONF_FILE = "./lctv-remote-app-example.cfg"
+LOG_FILE = "./lctv-remote-app-example.log"
+LOG_LEVEL = 10
 
 # options parser ##############################################################
 parser = OptionParser()
 parser.add_option("-c", "--conffile", dest="conffile",
-        help="The configuration file (default: %s)" % CONF_FILE)
+                  help="The configuration file (default: %s)" % CONF_FILE)
 (options, args) = parser.parse_args()
 conf_file = options.conffile
 
 # config parser ###############################################################
 try:
-  # RawConfigParser not interpolate attribute values
-  cfg = ConfigParser.RawConfigParser()
-  cfg.readfp(file(conf_file))
+    # RawConfigParser not interpolate attribute values
+    cfg = ConfigParser.RawConfigParser()
+    cfg.readfp(file(conf_file))
 
-  for s in cfg.sections():
-      if s == 'global':
-          for o in cfg.options(s):
-              try:
-                  if o.upper() == "LOG_LEVEL":
-                      vars()[o.upper()] = int(cfg.get(s,o))
-                  elif o.upper() == "PORT":
-                      vars()[o.upper()] = int(cfg.get(s,o))
-                  else:
-                      vars()[o.upper()] = cfg.get(s,o)
-              except Exception, e:
-                  print "Error parsing %s - %s: %s" % (s,o,e)
+    for s in cfg.sections():
+        if s == 'global':
+            for o in cfg.options(s):
+                try:
+                    if o.upper() == "LOG_LEVEL":
+                        vars()[o.upper()] = int(cfg.get(s, o))
+                    elif o.upper() == "PORT":
+                        vars()[o.upper()] = int(cfg.get(s, o))
+                    else:
+                        vars()[o.upper()] = cfg.get(s, o)
+                except Exception, e:
+                    print "Error parsing %s - %s: %s" % (s, o, e)
 
 except Exception, e:
-    print ("Conffile %s not found: %s" % (conf_file,e))
-
-
+    print ("Conffile %s not found: %s" % (conf_file, e))
 
 
 # functions #########################################################
-
 def show_app(state):
     """Generates a HTML page which acts as a dummy Livecoding.tv remote
     application. This page links the autodiscovered API operations and
@@ -97,8 +92,7 @@ def show_app(state):
     """
     global STATES
     logger.debug("State: {}".format(STATES[state]))
-    static_page = \
-'''
+    static_page = '''
 <!DOCTYPE html>
 <html>
 <body>
@@ -115,8 +109,7 @@ def show_app(state):
     finally:
         static_page += "<p><b>Streaming view key</b>: {}</p>".format(viewing_key)
 
-    static_page += \
-'''<h2>Considerations</h2><p>The following links using the Livecoding.tv API REST operations in the
+    static_page += '''<h2>Considerations</h2><p>The following links using the Livecoding.tv API REST operations in the
 backend logic. <u>Some of those operations use additional parameters as the
 "user_slug", "name" etc</u>. You can get the full list here <a
 href="https://www.livecoding.tv/developer/documentation/">Livecoding.tv API
@@ -132,16 +125,12 @@ values that you want use manually</u>.For example:</p>
     static_page += '<h2>Available operations:</h2><ul>'
     for action_key in sorted(ACTIONS, key=ACTIONS.get):
         action = ACTIONS[action_key]
-        static_page += \
-'<li><a href="{app_init}{end_point}?state={{state}}">{name}</a>'\
-.format(app_init=APP_INIT,**action)
-        if action["name"].count("{")>0:
-            static_page += \
-'<i> warning: this operation is not usable directly. Read the <b>Considerations</b> section (above)!</i>'
+        static_page += '<li><a href="{app_init}{end_point}?state={{state}}">{name}</a>'.format(app_init=APP_INIT, **action)
+        if action["name"].count("{") > 0:
+            static_page += '<i> warning: this operation is not usable directly. Read the <b>Considerations</b> section (above)!</i>'
         static_page += '</li>'
     static_page += '</ul>'
-    static_page += \
-'''
+    static_page += '''
 <p>Many of these actions use additional filtering parameters as:
     <ul>
     <li><b>Searching</b>:
@@ -169,7 +158,8 @@ values that you want use manually</u>.For example:</p>
 </body>
 </html>
 '''
-    return static_page.format(app_init=APP_INIT,**(STATES[state]))
+    return static_page.format(app_init=APP_INIT, **(STATES[state]))
+
 
 def check_state():
     '''the state links one concrete user session in the application side
@@ -189,15 +179,16 @@ def check_state():
     global STATES
     state = request.get_cookie("state", None)
     state = request.GET.get("state", state)
-    if not state or not STATES.has_key(state):
+    if not state or not state in STATES:
         state, scope, url = app.get_authorization_url()
-        STATES[state]={'scope': scope,'state': state}
+        STATES[state] = {'scope': scope, 'state': state}
         logger.debug("app_init redirecting to: %s" % url)
         redirect(url)
         logging.error("State {} not found in the app database".format(state))
     return state
 
 # routes ############################################################
+
 
 @route('/')
 @route(APP_INIT)
@@ -211,6 +202,7 @@ def app_init():
     """
     state = check_state()
     return show_app(state)
+
 
 @route(APP_AUTH_HOOK)
 def app_auth_hook():
@@ -234,9 +226,9 @@ def app_auth_hook():
     try:
         state = check_state()
         STATES[state]["code"] = code
-        STATES[state]["token"]=app.generate_token(code)
+        STATES[state]["token"] = app.generate_token(code)
         response.set_cookie("state", state)
-        redirect("{}?state={}".format(APP_INIT,state))
+        redirect("{}?state={}".format(APP_INIT, state))
     except LctvException as e:
         return "Error: %s" % e
 
@@ -260,11 +252,12 @@ def api_call(end_point):
     state = check_state()
     token = STATES[state]["token"]
     params = request.query.decode()
-    status_code, result = token.api_operation_call(end_point,params)
+    status_code, result = token.api_operation_call(end_point, params)
     try:
-        check_response(end_point,status_code) # throws n exception if it was
-        # a issue.
-        if isinstance(result,list): # bottle can not transform directly the list
+        check_response(end_point, status_code)
+        # throws n exception if it was a issue.
+        if isinstance(result, list):
+            # bottle can not transform directly the list
             # objects in a dictionary so, this is is a work around to allow
             # that.
             response.content_type = 'application/json'
@@ -282,18 +275,19 @@ if __name__ == "__main__":
     logger = logging.getLogger('lctv-remote-app')
     logger.addHandler(hdlr)
     logger.setLevel(LOG_LEVEL)
-    logger.info( "Starting lctv-remote-app" )
+    logger.info("Starting lctv-remote-app")
 
     logger_api = logging.getLogger('lctv-api')
     logger_api.addHandler(hdlr)
     logger_api.setLevel(LOG_LEVEL)
 
-    STATES={} #All the sessions/states create by this application. In a real
+    STATES = {}
+    #All the sessions/states create by this application. In a real
     # enviroment this should be something similar to a persistent database
     # or similar.
 
-    REDIRECT_URI="%s://%s:%s%s" % (PROTOCOL,HOSTNAME,PORT,APP_AUTH_HOOK)
+    REDIRECT_URI = "%s://%s:%s%s" % (PROTOCOL, HOSTNAME, PORT, APP_AUTH_HOOK)
     app = LctvOauth2App(APP_CLIENT_ID, APP_CLIENT_SECRET, REDIRECT_URI, APP_SCOPE)
-    ACTIONS=app.get_available_remote_api_calls()
+    ACTIONS = app.get_available_remote_api_calls()
 
     run(host=HOSTNAME, port=PORT)
