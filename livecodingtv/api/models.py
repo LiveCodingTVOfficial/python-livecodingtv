@@ -11,8 +11,9 @@ from .exceptions import LctvException
 
 logger = logging.getLogger('lctv-api')
 
-LCTV_BASE_PATH="https://www.livecoding.tv"
-LCTV_DOC_END_POINT="/developer/documentation/api-docs/api/v1"
+LCTV_BASE_PATH = "https://www.livecoding.tv"
+LCTV_DOC_END_POINT = "/developer/documentation/api-docs/api/v1"
+
 
 def check_response(end_point, code):
     '''Match the returned value of the HTTP response and raise
@@ -23,11 +24,11 @@ def check_response(end_point, code):
         logger.info(msg_)
         return True, msg_
     elif code == 401:
-        msg_="Token or client credentials invalid({}): {}".format(code,end_point)
+        msg_ = "Token or client credentials invalid({}): {}".format(code, end_point)
         logger.error(msg_)
     elif code == 403:
-        msg_=\
-"Not enough permissions (check the scope) for this operation: {}".format(end_point)
+        msg_ = "Not enough permissions (check the scope) \
+for this operation: {}".format(end_point)
         logger.error(msg_)
     raise LctvException(msg_)
 
@@ -50,7 +51,7 @@ class LctvOauth2App(object):
     '''
 
     def __init__(self, client_id, client_secret, redirect_uri, scope='read',
-            grant_type='authorization_code'):
+                 grant_type='authorization_code'):
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
@@ -59,7 +60,7 @@ class LctvOauth2App(object):
 
     def get_client_auth(self):
         client_auth = requests.auth.HTTPBasicAuth(self.client_id,
-                self.client_secret)
+                                                  self.client_secret)
         return client_auth
 
     def get_authorization_url(self):
@@ -70,11 +71,11 @@ class LctvOauth2App(object):
         """
         state = str(uuid4())
         params = {
-           "client_id": self.client_id,
-           "response_type": "code",
-           "state": state,
-           "redirect_uri": self.redirect_uri,
-           "scope": self.scope
+            "client_id": self.client_id,
+            "response_type": "code",
+            "state": state,
+            "redirect_uri": self.redirect_uri,
+            "scope": self.scope
         }
         return (state, self.scope, LCTV_BASE_PATH + "/o/authorize/?" + urllib.urlencode(params))
 
@@ -83,19 +84,18 @@ class LctvOauth2App(object):
         returns a dict with this information. This dict contains the
         end_points.
         """
-        response = requests.get(
-        LCTV_BASE_PATH + LCTV_DOC_END_POINT)
+        response = requests.get(LCTV_BASE_PATH + LCTV_DOC_END_POINT)
         json_ = response.json()
         actions = {}
         for api in json_['apis']:
             action = api['path']
             actions[action] = {
-                'name': action.replace('/', ' ').replace('{','{{').replace('}','}}'),
-                'end_point': action.replace('{','{{').replace('}','}}'),
+                'name': action.replace('/', ' ').replace('{', '{{').replace('}', '}}'),
+                'end_point': action.replace('{', '{{').replace('}', '}}'),
             }
         return actions
 
-    def generate_token(self,code):
+    def generate_token(self, code):
         """Used in the second phase of the OAuth2 process, after receives
         the valid code from Livecoding.tv, you will execute this method to
         get a valid access token. This token, usually is linked in some
@@ -118,14 +118,13 @@ class LctvOauth2App(object):
             auth=self.get_client_auth(),
             data=post_data)
         token_json = response.json()
-        logger.debug(\
-"generate_token: {{end_point: {}, status_code: {}}}"\
-    .format(end_point,response.status_code))
+        logger.debug("generate_token: {{end_point: {}, status_code: {}}}".format(
+                     end_point, response.status_code))
         logger.debug("generate_token: {}".format(token_json))
         check_response(end_point, response.status_code)
-        return LctvOauth2Token(app=self,**token_json)
+        return LctvOauth2Token(app=self, **token_json)
 
-    def api_operation_call(self,end_point,access_token, params={}):
+    def api_operation_call(self, end_point, access_token, params={}):
         """Delegates in Livecoding.tv the request and recovers the delivered
         information.
 
@@ -161,16 +160,18 @@ class LctvOauth2App(object):
             GET /api/codingcategories/?offset=200&limit=100
         """
         headers = {"Authorization": "bearer " + access_token}
-        response = requests.get(LCTV_BASE_PATH + end_point, params=params, headers=headers)
-        logger.debug(\
-"api_operation_call: {{end_point: {}, status_code: {}}}"\
-    .format(end_point,response.status_code))
+        response = requests.get(LCTV_BASE_PATH + end_point,
+                                params=params,
+                                headers=headers)
+        logger.debug("api_operation_call: {{end_point: {}, status_code: {}}}".format(
+            end_point, response.status_code))
         return (response.status_code, response.json())
 
 
 class LctvOauth2Token(object):
 
-    def __init__(self, app, access_token, token_type, expires_in, refresh_token, scope):
+    def __init__(self, app, access_token,
+                 token_type, expires_in, refresh_token, scope):
         self.app = app
         self.access_token = access_token
         self.token_type = token_type
@@ -201,7 +202,7 @@ class LctvOauth2Token(object):
         self.refresh_token = token_json['refresh_token']
         self.scope = token_json['scope']
 
-    def api_operation_call(self,end_point,params={},always_refresh=False):
+    def api_operation_call(self, end_point, params={}, always_refresh=False):
         """Delegates in Livecoding.tv the request and recovers the delivered
         information.
 
@@ -238,13 +239,14 @@ class LctvOauth2Token(object):
             self.api_refresh_token()
         if time.time() + 60 > self.expiration_time:
             self.api_refresh_token()
-        return self.app.api_operation_call(end_point,self.access_token,params)
+        return self.app.api_operation_call(end_point, self.access_token, params)
 
     def __repr__(self, ):
         """Return the canonical str representation of the object
         """
-        return \
-                '{{access_token:{}, token_type:{}, expires_in:{:.0f},refresh_token:{},scope:{}}}'\
-        .format(self.access_token,self.token_type,self.expiration_time-time.time(),self.refresh_token,self.scope)
-
-
+        return '{{access_token:{}, token_type:{}, expires_in:{:.0f},refresh_token:{},scope:{}}}'.format(
+            self.access_token,
+            self.token_type,
+            self.expiration_time - time.time(),
+            self.refresh_token,
+            self.scope)

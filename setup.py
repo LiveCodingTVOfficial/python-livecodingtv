@@ -4,27 +4,27 @@ version = "0.0.0"
 
 long_description = ""
 try:
-    long_description=file('README.md').read()
+    long_description = file('README.md').read()
 except Exception:
     pass
 
 license = ""
 try:
-    license=file('LICENSE').read()
+    license = file('LICENSE').read()
 except Exception:
     pass
 
 
 setup(
-    name = 'python-livecodingtv',
-    version = version,
-    description = '''\
+    name='python-livecodingtv',
+    version=version,
+    description='''\
 This package wraps the Livecoding.tv REST API in Python.
 ''',
-    author = 'Pablo Saavedra',
-    author_email = 'saavedra.pablo@gmail.com',
-    url = 'http://github.com/psaavedra/python-livecodingtv',
-    packages = find_packages(),
+    author='Pablo Saavedra',
+    author_email='saavedra.pablo@gmail.com',
+    url='http://github.com/psaavedra/python-livecodingtv',
+    packages=find_packages(),
     package_data={
     },
     scripts=[
@@ -38,10 +38,10 @@ This package wraps the Livecoding.tv REST API in Python.
             'examples/lctv-remote-app',
             'examples/lctv-remote-app-example.cfg',
         ]),
-    #     ('/etc/init.d', ['init-script'])
+        #     ('/etc/init.d', ['init-script'])
     ],
 
-    download_url= 'https://github.com/psaavedra/python-livecodingtv/zipball/master',
+    download_url='https://github.com/psaavedra/python-livecodingtv/zipball/master',
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "License :: OSI Approved :: MIT License",
@@ -52,5 +52,5 @@ This package wraps the Livecoding.tv REST API in Python.
     ],
     long_description=long_description,
     license=license,
-    keywords = "python lctv livecodingtv livecoding api rest ouath2",
+    keywords="python lctv livecodingtv livecoding api rest ouath2",
 )
